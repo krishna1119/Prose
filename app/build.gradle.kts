@@ -41,4 +41,6 @@ dependencies {
     testImplementation(libs.junit)
     androidTestImplementation(libs.ext.junit)
     androidTestImplementation(libs.espresso.core)
+    implementation ("com.google.android.gms:play-services-vision:20.1.3")
+    implementation("com.vanniktech:android-image-cropper:4.5.0")
 }

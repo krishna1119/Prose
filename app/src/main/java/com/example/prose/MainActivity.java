@@ -1,9 +1,14 @@
 package com.example.prose;
 
+import android.content.Intent;
+import android.graphics.Bitmap;
 import android.os.Bundle;
 
 import com.google.android.material.snackbar.Snackbar;
 
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContract;
+import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.appcompat.app.AppCompatActivity;
 
 import android.util.Log;
@@ -25,24 +30,31 @@ public class MainActivity extends AppCompatActivity {
 
     private AppBarConfiguration appBarConfiguration;
     private ActivityMainBinding binding;
+    private ActivityResultLauncher<Intent> cameraLauncher;
+    private static final int CAMERA_PIC_REQUEST = 1337;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        cameraLauncher = registerForActivityResult(new ActivityResultContracts.StartActivityForResult(), result -> {
+            if (result.getResultCode() == RESULT_OK) {
+                Intent data = result.getData();
+                if (data != null && data.getExtras() != null) {
+                    Bitmap imageBitmap = (Bitmap) data.getExtras().get("data");
+                    if (imageBitmap != null) {
+                        ImageEditor.getImage(imageBitmap);
+                    }
+                }
+            }
+        });
 
         binding = ActivityMainBinding.inflate(getLayoutInflater());
         setContentView(binding.getRoot());
+        Button btn = findViewById(R.id.extract_button);
+        btn.setOnClickListener((view) -> onCameraButtonClicked());
 
         setSupportActionBar(binding.toolbar);
 
-        Button btn = findViewById(R.id.extract_button);
-        btn.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                Log.i("button press","you clicked");
-                Toast.makeText(MainActivity.this, "button pressed", Toast.LENGTH_SHORT).show();
-            }
-        });
 
     }
 
@@ -66,6 +78,14 @@ public class MainActivity extends AppCompatActivity {
         }
 
         return super.onOptionsItemSelected(item);
+    }
+
+    private void onCameraButtonClicked(){
+        Log.i("button press","you clicked");
+//                Toast.makeText(MainActivity.this, "button pressed", Toast.LENGTH_SHORT).show();
+        Intent cameraIntent = new Intent(android.provider.MediaStore.ACTION_IMAGE_CAPTURE);
+        cameraLauncher.launch(cameraIntent);
+
     }
 
 }

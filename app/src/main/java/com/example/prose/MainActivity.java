@@ -1,9 +1,21 @@
 package com.example.prose;
 
-import android.content.Intent;
-import android.graphics.Bitmap;
-import android.os.Bundle;
 
+
+import android.content.Intent;
+import android.content.pm.PackageManager;
+import android.graphics.Bitmap;
+import android.net.Uri;
+import android.os.Bundle;
+import android.Manifest;
+
+
+import com.canhub.cropper.CropImage.*;
+import com.canhub.cropper.CropImageView;
+import com.canhub.cropper.CropImageActivity;
+import com.google.android.gms.vision.Frame;
+import com.google.android.gms.vision.text.TextBlock;
+import com.google.android.gms.vision.text.TextRecognizer;
 import com.google.android.material.snackbar.Snackbar;
 
 import androidx.activity.result.ActivityResultLauncher;
@@ -11,9 +23,13 @@ import androidx.activity.result.contract.ActivityResultContract;
 import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.appcompat.app.AppCompatActivity;
 
+import android.provider.MediaStore;
 import android.util.Log;
+import android.util.SparseArray;
 import android.view.View;
 
+import androidx.core.app.ActivityCompat;
+import androidx.core.content.ContextCompat;
 import androidx.navigation.NavController;
 import androidx.navigation.Navigation;
 import androidx.navigation.ui.AppBarConfiguration;
@@ -36,25 +52,17 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        cameraLauncher = registerForActivityResult(new ActivityResultContracts.StartActivityForResult(), result -> {
-            if (result.getResultCode() == RESULT_OK) {
-                Intent data = result.getData();
-                if (data != null && data.getExtras() != null) {
-                    Bitmap imageBitmap = (Bitmap) data.getExtras().get("data");
-                    if (imageBitmap != null) {
-                        ImageEditor.getImage(imageBitmap);
-                    }
-                }
-            }
-        });
-
         binding = ActivityMainBinding.inflate(getLayoutInflater());
+
         setContentView(binding.getRoot());
         Button btn = findViewById(R.id.extract_button);
-        btn.setOnClickListener((view) -> onCameraButtonClicked());
 
-        setSupportActionBar(binding.toolbar);
+        if(ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA)!= PackageManager.PERMISSION_GRANTED){
+            ActivityCompat.requestPermissions(MainActivity.this, new String[]{Manifest.permission.CAMERA},CAMERA_PIC_REQUEST );
+        }
 
+
+        btn.setOnClickListener(view -> onCameraButtonClicked());
 
     }
 
@@ -81,11 +89,63 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void onCameraButtonClicked(){
-        Log.i("button press","you clicked");
-//                Toast.makeText(MainActivity.this, "button pressed", Toast.LENGTH_SHORT).show();
         Intent cameraIntent = new Intent(android.provider.MediaStore.ACTION_IMAGE_CAPTURE);
-        cameraLauncher.launch(cameraIntent);
+        if (cameraIntent.resolveActivity(getPackageManager()) != null) {
+            cameraLauncher.launch(cameraIntent);
+            initializeCameraLauncher();
+        } else {
+            Toast.makeText(this, "No camera app found", Toast.LENGTH_SHORT).show();
+        }
 
+
+    }
+
+    private void initializeCameraLauncher() {
+        cameraLauncher = registerForActivityResult(new ActivityResultContracts.StartActivityForResult(), result -> {
+            if (result.getResultCode() == RESULT_OK) {
+                // Get the captured image URI
+                Intent data = result.getData();
+                Uri capturedImageUri = data.getData();
+
+                // Launch the cropping activity with the captured image URI
+                Bitmap resultAfterCrop = cropImage(capturedImageUri);
+            } else {
+                Toast.makeText(this, "Failed to capture image", Toast.LENGTH_SHORT).show();
+            }
+        });
+    }
+
+    private Bitmap cropImage(Uri imageUri) {
+        Bitmap bitmap;
+//        CropImage.activity(imageUri)
+//                .setGuidelines(CropImageView.Guidelines.ON)
+//                .start(this);
+
+        //after get data, then we gong to do the ocr part
+        bitmap = MediaStore.Images.Media.getBitmap(this.getContentResolver(), resultUri);
+        return bitmap;
+    }
+
+    private void gettextFromImaages(Bitmap bitmap){
+        TextRecognizer recogonizer = new TextRecognizer.Builder(this).build();
+        if(recogonizer.isOperational()){
+            Toast.makeText(this, "ErrorOccured", Toast.LENGTH_SHORT).show();
+        }
+        else{
+            Frame frame = new Frame.Builder().setBitmap(bitmap).build();
+            SparseArray<TextBlock>  textBlock = recogonizer.detect(frame);
+            StringBuilder stringBuilder = new StringBuilder();
+            for(int i=0; i<textBlock.size();i++){
+                TextBlock tb = textBlock.valueAt(i);
+                stringBuilder.append(tb.getValue());
+                stringBuilder.append("\n");  //for line keeping as the frame
+
+
+            }
+            String resultText = new String(stringBuilder.toString());
+
+
+        }
     }
 
 }
